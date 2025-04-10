@@ -1,0 +1,261 @@
+﻿@page "/registro"
+@using BlazorApp1.Data
+@using Microsoft.AspNetCore.Identity
+@using BlazorApp1.Components.Account.Shared
+@using BlazorApp1.Data.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.WebUtilities
+@using System.Net.Mail
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject UserManager<ApplicationUser> usermanager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject NavigationManager NavigationManager
+@inject SignInManager<ApplicationUser> signInManager
+
+<title>Registros</title>
+
+<h3 class="align-content-center">Agregar Registro</h3>
+
+<div>
+    <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span>
+    @(currentUser?.FirstName ?? currentUser?.UserName)
+</div>
+
+<EditForm Model="Input" OnValidSubmit="@HandleValidSubmit" FormName="RegistrosForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <table class="table">
+        <tr>
+            <th><strong>No.</strong></th>
+            <th><strong>Cliente</strong></th>
+            <th><strong>Asunto</strong></th>
+            <th><strong>Resumen del reporte</strong></th>
+            <th><strong>Describa con más detalle el registro</strong></th>
+            <th><strong>Fecha</strong></th>
+            <th><strong>Estado</strong></th>
+        </tr>
+        <tr>
+            <td>@ContadorId</td>
+            <td>
+                <InputSelect id="Cliente" class="form-control" @bind-Value="Input.cliente">
+                    <option value="">Seleccione una opcion</option>
+                    @foreach (var cliente in Clientes)
+                    {
+                        <option value="@cliente.Nombre">@cliente.Nombre</option>
+                    }
+                </InputSelect>
+            </td>
+            <td>
+                <InputSelect id="Asunto" class="form-control" @bind-Value="Input.asunto">
+                    <option value="">Seleccione una opcion</option>
+                    @foreach (var asunto in Asuntos)
+                    {
+                        <option value="@asunto.Asuntos">@asunto.Asuntos</option>
+                    }
+                </InputSelect>
+            </td>
+            <td>
+                <InputText id="Resumen" class="form-control" @bind-Value="Input.desCorta" />
+            </td>
+            <td>
+                <InputText id="Descripcion" class="form-control" @bind-Value="Input.descripcion" />
+            </td>
+            <td>
+                <span>@DateTime.Now</span>
+            </td>
+            <td>
+                Nuevo
+            </td>
+        </tr>
+    </table>
+
+    <button type="submit" class="btn btn-primary">ACEPTAR</button>
+</EditForm>
+
+
+<h3 class="align-content-center">Registros Enviados</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>No.</th>
+            <th>Cliente</th>
+            <th>Asunto</th>
+            <th>Resumen del reporte</th>
+            <th>Describa con más detalle el registro</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Nota</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var registro in UserRegistros)
+        {
+            <tr>
+                <td>@registro.Id</td>
+                <td>@registro.Cliente</td>
+                <td>@registro.Asunto</td>
+                <td>@registro.DescCorta</td>
+                <td>@registro.Descripcion</td>
+                <td>@registro.Fecha.ToString("dd/MM/yyyy")</td>
+                <td>@registro.Estado</td>
+                <td>@registro.Nota</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+
+    private string? UserName;
+    private string? UserLastName;
+    private int ContadorId;
+    private List<Clientes> Clientes = new List<Clientes>();
+    private List<Asunto> Asuntos = new List<Asunto>();
+    private List<Registros> UserRegistros = new List<Registros>();
+    private ApplicationUser? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userPrincipal = authState.User;
+
+            if (userPrincipal.Identity?.IsAuthenticated == true)
+            {
+                currentUser = await usermanager.GetUserAsync(userPrincipal);
+                UserName = currentUser?.FirstName ?? userPrincipal.Identity.Name;
+                UserLastName = currentUser?.LastName;
+            }
+
+            //Registros.Fecha = DateTime.Now;
+
+            // Crear instancias separadas del DbContext de forma correcta
+            await using var dbContext = DbContextFactory.CreateDbContext();
+
+            Clientes = await dbContext.Clientes.ToListAsync();
+            Asuntos = await dbContext.Asuntos.ToListAsync();
+            UserRegistros = await dbContext.Registros
+                .Where(r => r.Nombre == UserName + " " + UserLastName)
+                .ToListAsync();
+        }
+
+        catch (Exception ex)
+        {
+            // Handle exceptions (e.g., log the error)
+            Console.Error.WriteLine($"Error during initialization: {ex.Message}");
+        }
+    }
+
+    private async Task LoadClientesAsync()
+    {
+        try
+        {
+            await using var dbContext = DbContextFactory.CreateDbContext();
+            Clientes = await dbContext.Clientes.ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions (e.g., log the error)
+            Console.Error.WriteLine($"Error loading clients: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAsuntosAsync()
+    {
+        try
+        {
+            await using var dbContext = DbContextFactory.CreateDbContext();
+            Asuntos = await dbContext.Asuntos.ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions (e.g., log the error)
+            Console.Error.WriteLine($"Error loading issues: {ex.Message}");
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            // Asegurarse de que UserName y UserLastName estén asignados
+            if (string.IsNullOrEmpty(UserName) || string.IsNullOrEmpty(UserLastName))
+            {
+                var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                var userPrincipal = authState.User;
+
+                if (userPrincipal.Identity?.IsAuthenticated == true)
+                {
+                    currentUser = await usermanager.GetUserAsync(userPrincipal);
+                    UserName = currentUser?.FirstName ?? userPrincipal.Identity.Name;
+                    UserLastName = currentUser?.LastName;
+                }
+            }
+
+             Registros Registros = new Registros
+                {
+                    Asunto = Input.asunto,
+                    Cliente = Input.cliente,
+                    DescCorta = Input.desCorta,
+                    Descripcion = Input.descripcion
+                };
+
+
+            //debe insertar los datos que se llenaron en el formulario
+            Registros.Nombre = UserName + " " + UserLastName;
+            Registros.Estado = "Nuevo";
+
+            await using (var dbContext = DbContextFactory.CreateDbContext())
+            {
+				 dbContext.Registros.Add(Registros);
+                await dbContext.SaveChangesAsync();
+            }
+
+            // Usar un nuevo contexto para recargar los registros
+            await using (var dbContext = DbContextFactory.CreateDbContext())
+            {
+                UserRegistros = await dbContext.Registros
+                    .Where(r => r.Nombre == $"{UserName} {UserLastName}")
+                    .ToListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving record: {ex.Message}");
+        }
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [Display(Name = "Email")]
+        public string asunto { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Password")]
+        public string cliente { get; set; } = "";
+
+        [Display(Name = "Confirm password")]
+        public string desCorta { get; set; } = "";
+
+        [Required]
+        [Display(Name = "First name")]
+        public string descripcion { get; set; } = null!;
+    }
+}
+

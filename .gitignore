@@ -1,0 +1,32 @@
+# Build artifacts
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.swp
+*.log
+*.tmp
+*.bak
+*.db
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# ASP.NET Core
+wwwroot/dist/
+wwwroot/_framework/
+appsettings.Development.json
+appsettings.Local.json
+
+# Blazor WebAssembly
+dist/
+
+# Logs
+*.log
+logs/
+
+
+.vs/

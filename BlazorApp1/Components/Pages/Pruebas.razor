@@ -1,0 +1,17 @@
+﻿@page "/pruebas"
+
+@using MudBlazor
+
+<MudContainer>
+    <MudButton OnClick="OnClick" Color="Color.Primary" Variant="Variant.Filled">
+        Click Me
+    </MudButton>
+</MudContainer>
+
+@code {
+    private void OnClick()
+    {
+        Console.WriteLine("¡Botón presionado!");
+    }
+}
+

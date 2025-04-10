@@ -1,0 +1,56 @@
+﻿@using BlazorApp1.Data.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using BlazorApp1.Data.Services
+
+
+
+<h3>Agregar Reporte Diario</h3>
+
+<button @onclick="AddReporteDiarioModel" class="btn btn-primary">Agregar Reporte Diario</button>
+
+@code {
+    [Inject]
+    private IDbContextFactory<ApplicationDbContext> DbContextFactory { get; set; } = default!;
+
+    [Inject]
+    private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+
+    private string? UserName;
+    private string? UserLastName;
+
+    private async Task AddReporteDiarioModel()
+    {
+        try
+        {
+            // Obtener el estado de autenticación
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userPrincipal = authState.User;
+
+            if (userPrincipal.Identity?.IsAuthenticated == true)
+            {
+                UserName = userPrincipal.Identity.Name;
+                UserLastName = userPrincipal.FindFirst(c => c.Type == "LastName")?.Value;
+            }
+
+            // Crear una nueva instancia de ReporteDiarioModel
+            var reporteDiario = new ReporteDiarioModel
+                {
+                    UserName = UserName,
+                    UserLastName = UserLastName,
+                    Estado = "Nuevo",
+                    DateTime = DateTime.Now
+                };
+
+            // Guardar en la base de datos
+            await using var dbContext = DbContextFactory.CreateDbContext();
+            dbContext.ReporteDiarioModel.Add(reporteDiario);
+            await dbContext.SaveChangesAsync();
+
+            Console.WriteLine("Reporte Diario agregado exitosamente.");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al agregar el reporte diario: {ex.Message}");
+        }
+    }
+}
